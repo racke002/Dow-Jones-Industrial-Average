@@ -1,0 +1,127 @@
+library(dplyr)
+library(ggplot2)
+DJIA <- read.table(file = "C:/Users/Ryan/Desktop/Python Projects/upload_DJIA_table.csv", header=TRUE, sep=",")
+head(DJIA)
+#A)	Data hygiene
+#1) replace missing values with mean 
+#Only columns K, L and M were missing values, I took the averages of the next 3 days to fill these missing data in excel
+sum(is.na(DJIA))
+
+#2) Delete outliers
+for (i in colnames(DJIA)){
+  if (is.numeric(DJIA[[i]])) {
+    if (length(boxplot(DJIA[[i]], plot=FALSE)$out)>0){
+      print(paste(i,length(boxplot(DJIA[[i]], plot=FALSE)$out)))}}}
+#here we can see that there are the following outliers  
+#"Volume 136"
+#"gain 147"
+#"loss 210"
+#"Avg.gain 95"
+#"avg.loss 103"
+#"RS 150"
+#"X30.day.average 5"
+#"X7.day.SD 72"
+
+outliers1 <- function(x1) {
+  Q1 <- quantile(x1, probs = .25, na.rm = TRUE)
+  Q3 <- quantile(x1, probs = .75, na.rm = TRUE)
+  IQR = Q3 - Q1
+  
+  Upper = Q3 + (IQR * 1.5)
+  Lower = Q1 - (IQR * 1.5)
+  
+  x1 > Upper | x1 < Lower
+}
+
+# In this line of code we remove all of the outliers
+
+outliers_2 <- function(DJIA, cols = names(DJIA)) {
+  for (col in cols) {
+    DJIA <- DJIA[!outliers1(DJIA[[col]]),]
+  }
+  DJIA
+}
+
+DJIA_1 <- outliers_2(DJIA, c('Volume','X30.day.average',
+                             "gain",
+                             "loss",
+                             "Avg.gain",
+                             "avg.loss",
+                             "RS",
+                             "X30.day.average",
+                             "X7.day.SD"))
+
+for (i in colnames(DJIA_1)){
+  if (is.numeric(DJIA_1[[i]])) {
+    if (length(boxplot(DJIA_1[[i]], plot=FALSE)$out)>0){
+      print(paste(i,length(boxplot(DJIA_1[[i]], plot=FALSE)$out)))}}}
+#after removing the first set of outliers we can see that the overall number has 
+#dropped significantly I left the remainder of the outliers 
+
+print(colnames(DJIA_1))
+typeof(DJIA_1$gain)
+num_value <- select(DJIA_1, 
+           "Open",           
+    "High"      ,      "Low",            
+    "Close"      ,     "Volume",         
+    "Adj.Close"   ,    "gain",           
+    "loss"         ,   "Avg.gain",       
+    "avg.loss"      ,  "RS",             
+    "RSI"            , "X30.day.average",
+    "year.average"    ,"quarter.average",
+    "X7.day.SD"       ,"up_down")  
+cor_table <- cor(num_value) 
+View(cor_table) 
+ggplot(DJIA_1, aes())
+
+num_value <- select(DJIA_1, 
+                    "Open",           
+                    "High"      ,      "Low",            
+                    "Close"      ,     "Volume",         
+                    "Adj.Close"    , "X30.day.average",
+                    "year.average"    ,"quarter.average",)  
+cor_table <- cor(num_value) 
+View(cor_table) 
+
+
+str(DJIA_1)
+
+Lin_reg2 <- (select(DJIA_1, Open, High, Low, Close, Volume, Adj.Close, gain,
+                          loss, Avg.gain, avg.loss, RS, RSI, X30.day.average, 
+                          year.average, quarter.average, X7.day.SD,up_down))
+
+#Here we split our Data 70:30 into testing and training data
+
+row.num2 <-  sample(1:nrow(Lin_reg2), 0.7*nrow(Lin_reg2))
+TrainData_SD <- Lin_reg2[row.num2,]
+TestData_SD <- Lin_reg2[-row.num2,]
+
+
+#Multiple regression model trials 
+
+Mult_reg4 <- lm(Open ~ Volume + X30.day.average, data = DJIA_1)
+summary(Mult_reg4)
+plot(Mult_reg4)
+
+Mult_reg5 <- lm(Open ~ High + Low + Close + Adj.Close + X30.day.average, data = DJIA_1)
+summary(Mult_reg4)
+plot(Mult_reg5)
+#This model had too many variables that were too correlated
+
+
+#Prediction model
+PV <- predict(Mult_reg4, newdata = TestData_SD)
+RMSE2 <- sqrt(sum((PV - TestData_SD$Open)^2)/nrow(TestData_SD))
+plot(TestData_SD$Open, PV,xlim=c(8000,18000), ylim=c(8000,18000), xlab="Actual Values", ylab="Predicted Values", main = "Opening Price")
+abline(lm(TestData_SD$Open), col="red")
+c(RMSE3 = RMSE2, R2=summary(PV))
+summary(c)
+
+PV <- predict(Mult_reg4, newdata = TrainData_SD)
+RMSE2 <- sqrt(sum((PV - TrainData_SD$Open)^2)/nrow(TrainData_SD))
+plot(TrainData_SD$Open, PV,xlim=c(8000,18000), ylim=c(8000,18000), xlab="Actual Values", ylab="Predicted Values", main = "Opening Price")
+abline(lm(TrianData_SD$Open), col="red")
+c(RMSE3 = RMSE2, R2=summary(PV))
+summary(c)
+#Testing RMSE = 595.2859
+#Training RMSE = 396.3471 
